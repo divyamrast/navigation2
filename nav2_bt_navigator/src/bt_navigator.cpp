@@ -323,7 +323,7 @@ BtNavigator::initializeGoalPose()
   blackboard_->set<int>("number_recoveries", 0);  // NOLINT
 
   // Update the goal pose on the blackboard
-  blackboard_->set("goal", goal->pose);
+  blackboard_->set<geometry_msgs::msg::PoseStamped>("goal", goal->pose);
 }
 
 void

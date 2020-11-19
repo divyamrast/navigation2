@@ -54,6 +54,8 @@ PlannerServer::PlannerServer()
 
   // Launch a thread to run the costmap node
   costmap_thread_ = std::make_unique<nav2_util::NodeThread>(costmap_ros_);
+
+  get_plan_service_ = this->create_service<nav2_msgs::srv::GetPlan>("get_plan", std::bind(&PlannerServer::getPlanService, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 PlannerServer::~PlannerServer()
@@ -196,6 +198,12 @@ PlannerServer::on_shutdown(const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "Shutting down");
   return nav2_util::CallbackReturn::SUCCESS;
+}
+
+bool PlannerServer::getPlanService(const std::shared_ptr<nav2_msgs::srv::GetPlan::Request> request, std::shared_ptr<nav2_msgs::srv::GetPlan::Response> response)
+{
+  response->path = getPlan(request->start, request->goal, request->planner_id);
+  return true;
 }
 
 void

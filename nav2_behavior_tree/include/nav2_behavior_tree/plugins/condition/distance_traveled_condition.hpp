@@ -42,7 +42,7 @@ public:
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<double>("distance", 1.0, "Distance"),
+      BT::InputPort<float>("distance", 1.0, "Distance"),
       BT::InputPort<std::string>("global_frame", std::string("map"), "Global frame"),
       BT::InputPort<std::string>("robot_base_frame", std::string("base_link"), "Robot base frame")
     };
@@ -54,7 +54,7 @@ private:
 
   geometry_msgs::msg::PoseStamped start_pose_;
 
-  double distance_;
+  float distance_;
   double transform_tolerance_;
   std::string global_frame_;
   std::string robot_base_frame_;

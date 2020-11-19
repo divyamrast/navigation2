@@ -21,6 +21,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -36,6 +37,7 @@
 #include "pluginlib/class_loader.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "nav2_core/global_planner.hpp"
+#include "nav2_msgs/srv/get_plan.hpp"
 
 namespace nav2_planner
 {
@@ -118,6 +120,8 @@ protected:
    */
   void publishPlan(const nav_msgs::msg::Path & path);
 
+  bool getPlanService(const std::shared_ptr<nav2_msgs::srv::GetPlan::Request> request,
+                      std::shared_ptr<nav2_msgs::srv::GetPlan::Response> response);
   // Planner
   PlannerMap planners_;
   pluginlib::ClassLoader<nav2_core::GlobalPlanner> gp_loader_;
@@ -141,6 +145,9 @@ protected:
 
   // Publishers for the path
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+
+  //Service
+  rclcpp::Service<nav2_msgs::srv::GetPlan>::SharedPtr get_plan_service_;
 };
 
 }  // namespace nav2_planner

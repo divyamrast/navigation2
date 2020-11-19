@@ -27,6 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ManageLifecycleNodes.srv"
   "srv/LoadMap.srv"
   "srv/SaveMap.srv"
+  "srv/GetPlan.srv"
   "action/BackUp.action"
   "action/ComputePathToPose.action"
   "action/FollowPath.action"

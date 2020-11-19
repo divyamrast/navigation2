@@ -44,6 +44,7 @@ DistanceTraveledCondition::DistanceTraveledCondition(
 BT::NodeStatus DistanceTraveledCondition::tick()
 {
   if (status() == BT::NodeStatus::IDLE) {
+    getInput("distance", distance_);
     if (!nav2_util::getCurrentPose(
         start_pose_, *tf_, global_frame_, robot_base_frame_,
         transform_tolerance_))
@@ -73,7 +74,7 @@ BT::NodeStatus DistanceTraveledCondition::tick()
 
   // Update start pose
   start_pose_ = current_pose;
-
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Distance_travelled:"<<travelled<<" "<<distance_);
   return BT::NodeStatus::SUCCESS;
 }
 
