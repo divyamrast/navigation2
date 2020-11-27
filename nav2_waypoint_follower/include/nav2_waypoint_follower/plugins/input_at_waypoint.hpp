@@ -70,14 +70,17 @@ protected:
    * @param msg Empty message
    */
   void Cb(const std_msgs::msg::Empty::SharedPtr msg);
+  void cancelCb(const std_msgs::msg::Empty::SharedPtr msg);
 
   bool input_received_;
+  bool cancel_received_;
   bool is_enabled_;
   rclcpp::Duration timeout_;
   rclcpp::Logger logger_{rclcpp::get_logger("nav2_waypoint_follower")};
   rclcpp::Clock::SharedPtr clock_;
   std::mutex mutex_;
-  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr subscription_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr next_goal_subscription_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr cancel_mission_subscription_;
 };
 
 }  // namespace nav2_waypoint_follower

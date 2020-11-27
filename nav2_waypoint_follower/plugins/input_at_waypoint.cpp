@@ -48,7 +48,7 @@ void InputAtWaypoint::initialize(
   clock_ = node->get_clock();
 
   double timeout;
-  std::string input_topic;
+  std::string input_topic, cancel_topic;
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".timeout",
     rclcpp::ParameterValue(10.0));
@@ -58,22 +58,34 @@ void InputAtWaypoint::initialize(
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name + ".input_topic",
     rclcpp::ParameterValue("input_at_waypoint/input"));
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name + ".cancel_topic",
+    rclcpp::ParameterValue("cancel_mission"));
   node->get_parameter(plugin_name + ".timeout", timeout);
   node->get_parameter(plugin_name + ".enabled", is_enabled_);
   node->get_parameter(plugin_name + ".input_topic", input_topic);
+  node->get_parameter(plugin_name + ".cancel_topic", cancel_topic);
 
   timeout_ = rclcpp::Duration(timeout, 0.0);
 
   RCLCPP_INFO(
     logger_, "InputAtWaypoint: Subscribing to input topic %s.", input_topic.c_str());
-  subscription_ = node->create_subscription<std_msgs::msg::Empty>(
+  next_goal_subscription_ = node->create_subscription<std_msgs::msg::Empty>(
     input_topic, 1, std::bind(&InputAtWaypoint::Cb, this, _1));
+  cancel_mission_subscription_ = node->create_subscription<std_msgs::msg::Empty>(
+    cancel_topic, 1, std::bind(&InputAtWaypoint::cancelCb, this, _1));
 }
 
 void InputAtWaypoint::Cb(const std_msgs::msg::Empty::SharedPtr /*msg*/)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   input_received_ = true;
+}
+
+void InputAtWaypoint::cancelCb(const std_msgs::msg::Empty::SharedPtr /*msg*/)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  cancel_received_ = true;
 }
 
 bool InputAtWaypoint::processAtWaypoint(
@@ -85,18 +97,25 @@ bool InputAtWaypoint::processAtWaypoint(
   }
 
   input_received_ = false;
+  cancel_received_ = false;
 
   rclcpp::Time start = clock_->now();
   rclcpp::Rate r(50);
   bool input_received = false;
+  bool cancel_received = false;
   while (clock_->now() - start < timeout_) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       input_received = input_received_;
+      cancel_received = cancel_received_;
     }
 
     if (input_received) {
       return true;
+    }
+
+    if (cancel_received) {
+      return false;
     }
 
     r.sleep();
