@@ -221,6 +221,10 @@ AmclNode::AmclNode()
   add_parameter(
     "map_topic", rclcpp::ParameterValue("map"),
     "Topic to subscribe to in order to receive the map to localize on");
+
+  add_parameter(
+    "max_covariance_allowed_to_update_tf", rclcpp::ParameterValue(0.09),
+    "Max covariance allowed for amcl to update map to odom transform");
 }
 
 AmclNode::~AmclNode()
@@ -241,6 +245,10 @@ AmclNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
   initOdometry();
   initParticleFilter();
   initLaserScan();
+
+  x_tf_ = y_tf_ = yaw_tf_ = 0.0;
+  high_covariance_ = false;
+  initial_pose_recv_ = true;
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -401,7 +409,7 @@ AmclNode::checkLaserReceived()
     RCLCPP_WARN(
       get_logger(), "Laser scan has not been received"
       " (and thus no pose updates have been published)."
-      " Verify that data is being published on the %s topic.", scan_topic_);
+      " Verify that data is being published on the %s topic.", scan_topic_.c_str());
     return;
   }
 
@@ -410,7 +418,7 @@ AmclNode::checkLaserReceived()
     RCLCPP_WARN(
       get_logger(), "No laser scan received (and thus no pose updates have been published) for %f"
       " seconds.  Verify that data is being published on the %s topic.",
-      d.nanoseconds() * 1e-9, scan_topic_);
+      d.nanoseconds() * 1e-9, scan_topic_.c_str());
   }
 }
 
@@ -621,6 +629,8 @@ AmclNode::handleInitialPose(geometry_msgs::msg::PoseWithCovarianceStamped & msg)
   pf_init_ = false;
   init_pose_received_on_inactive = false;
   initial_pose_is_known_ = true;
+
+  initial_pose_recv_ = true;
 }
 
 void
@@ -964,6 +974,10 @@ AmclNode::publishAmclPose(
   float temp = 0.0;
   for (auto covariance_value : p->pose.covariance) {
     temp += covariance_value;
+    if (!initial_pose_recv_)
+    {
+      if (abs(covariance_value) > max_covariance_) high_covariance_ = true;
+    }
   }
   temp += p->pose.pose.position.x + p->pose.pose.position.y;
   if (!std::isnan(temp)) {
@@ -989,29 +1003,38 @@ AmclNode::calculateMaptoOdomTransform(
   const sensor_msgs::msg::LaserScan::ConstSharedPtr & laser_scan,
   const std::vector<amcl_hyp_t> & hyps, const int & max_weight_hyp)
 {
-  // subtracting base to odom from map to base and send map to odom instead
-  geometry_msgs::msg::PoseStamped odom_to_map;
-  try {
-    tf2::Quaternion q;
-    q.setRPY(0, 0, hyps[max_weight_hyp].pf_pose_mean.v[2]);
-    tf2::Transform tmp_tf(q, tf2::Vector3(
-        hyps[max_weight_hyp].pf_pose_mean.v[0],
-        hyps[max_weight_hyp].pf_pose_mean.v[1],
-        0.0));
+  if (high_covariance_ == false || initial_pose_recv_ == true)
+  {
+    x_tf_ = hyps[max_weight_hyp].pf_pose_mean.v[0];
+    y_tf_ = hyps[max_weight_hyp].pf_pose_mean.v[1];
+    yaw_tf_ = hyps[max_weight_hyp].pf_pose_mean.v[2];
 
-    geometry_msgs::msg::PoseStamped tmp_tf_stamped;
-    tmp_tf_stamped.header.frame_id = base_frame_id_;
-    tmp_tf_stamped.header.stamp = laser_scan->header.stamp;
-    tf2::toMsg(tmp_tf.inverse(), tmp_tf_stamped.pose);
+    // subtracting base to odom from map to base and send map to odom instead
+    geometry_msgs::msg::PoseStamped odom_to_map;
+    try {
+      tf2::Quaternion q;
+      q.setRPY(0, 0, yaw_tf_);
+      tf2::Transform tmp_tf(q, tf2::Vector3(
+          x_tf_,
+          y_tf_,
+          0.0));
 
-    tf_buffer_->transform(tmp_tf_stamped, odom_to_map, odom_frame_id_);
-  } catch (tf2::TransformException & e) {
-    RCLCPP_DEBUG(get_logger(), "Failed to subtract base to odom transform: (%s)", e.what());
-    return;
+      geometry_msgs::msg::PoseStamped tmp_tf_stamped;
+      tmp_tf_stamped.header.frame_id = base_frame_id_;
+      tmp_tf_stamped.header.stamp = laser_scan->header.stamp;
+      tf2::toMsg(tmp_tf.inverse(), tmp_tf_stamped.pose);
+
+      tf_buffer_->transform(tmp_tf_stamped, odom_to_map, odom_frame_id_);
+    } catch (tf2::TransformException & e) {
+      RCLCPP_DEBUG(get_logger(), "Failed to subtract base to odom transform: (%s)", e.what());
+      return;
+    }
+
+    tf2::impl::Converter<true, false>::convert(odom_to_map.pose, latest_tf_);
+    latest_tf_valid_ = true;
+    initial_pose_recv_ = false;
   }
-
-  tf2::impl::Converter<true, false>::convert(odom_to_map.pose, latest_tf_);
-  latest_tf_valid_ = true;
+  high_covariance_ = false;
 }
 
 void
@@ -1101,6 +1124,7 @@ AmclNode::initParameters()
   get_parameter("always_reset_initial_pose", always_reset_initial_pose_);
   get_parameter("scan_topic", scan_topic_);
   get_parameter("map_topic", map_topic_);
+  get_parameter("max_covariance_allowed_to_update_tf", max_covariance_);
 
   save_pose_period_ = tf2::durationFromSec(1.0 / save_pose_rate);
   transform_tolerance_ = tf2::durationFromSec(tmp_tol);

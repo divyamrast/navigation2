@@ -23,6 +23,7 @@ set(dependencies
   tf2_geometry_msgs
   nav2_msgs
   nav2_util
+  nav_2d_msgs
 )
 
 include_directories(

@@ -105,6 +105,9 @@ protected:
   tf2::Transform latest_tf_;
   void waitForTransforms();
 
+  double x_tf_, y_tf_, yaw_tf_;
+  bool high_covariance_, initial_pose_recv_;
+
   // Message filters
   void initMessageFilters();
   std::unique_ptr<message_filters::Subscriber<sensor_msgs::msg::LaserScan>> laser_scan_sub_;
@@ -250,6 +253,7 @@ protected:
   double z_rand_;
   std::string scan_topic_{"scan"};
   std::string map_topic_{"map"};
+  double max_covariance_;
 };
 
 }  // namespace nav2_amcl

@@ -51,7 +51,7 @@ ObservationBuffer::ObservationBuffer(
   double expected_update_rate,
   double min_obstacle_height, double max_obstacle_height, double obstacle_range,
   double raytrace_range, tf2_ros::Buffer & tf2_buffer, std::string global_frame,
-  std::string sensor_frame, double tf_tolerance)
+  std::string sensor_frame, tf2::Duration tf_tolerance)
 : tf2_buffer_(tf2_buffer),
   observation_keep_time_(rclcpp::Duration::from_seconds(observation_keep_time)),
   expected_update_rate_(rclcpp::Duration::from_seconds(expected_update_rate)), nh_(nh),
@@ -74,7 +74,7 @@ bool ObservationBuffer::setGlobalFrame(const std::string new_global_frame)
   geometry_msgs::msg::TransformStamped transformStamped;
   if (!tf2_buffer_.canTransform(
       new_global_frame, global_frame_, tf2_ros::fromMsg(transform_time),
-      tf2::durationFromSec(tf_tolerance_), &tf_error))
+      tf_tolerance_, &tf_error))
   {
     RCLCPP_ERROR(
       rclcpp::get_logger(
@@ -95,12 +95,12 @@ bool ObservationBuffer::setGlobalFrame(const std::string new_global_frame)
       origin.point = obs.origin_;
 
       // we need to transform the origin of the observation to the new global frame
-      tf2_buffer_.transform(origin, origin, new_global_frame, tf2::durationFromSec(tf_tolerance_));
+      tf2_buffer_.transform(origin, origin, new_global_frame, tf_tolerance_);
       obs.origin_ = origin.point;
 
       // we also need to transform the cloud of the observation to the new global frame
       tf2_buffer_.transform(
-        *(obs.cloud_), *(obs.cloud_), new_global_frame, tf2::durationFromSec(tf_tolerance_));
+        *(obs.cloud_), *(obs.cloud_), new_global_frame, tf_tolerance_);
     } catch (tf2::TransformException & ex) {
       RCLCPP_ERROR(
         rclcpp::get_logger(

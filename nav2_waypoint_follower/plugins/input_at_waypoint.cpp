@@ -103,7 +103,7 @@ bool InputAtWaypoint::processAtWaypoint(
   rclcpp::Rate r(50);
   bool input_received = false;
   bool cancel_received = false;
-  while (clock_->now() - start < timeout_) {
+  while (true) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       input_received = input_received_;
